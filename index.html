@@ -1,1 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quote Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #1e1e1e;
+    --text: #e8e0d0;
+    --muted: #555;
+    --accent: #c9a96e;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { width: 100%; max-width: 1100px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  header .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  header p {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 15px;
+    font-style: italic;
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  input, textarea, select {
+    width: 100%;
+    background: #0d0d0d;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: 'Cormorant Garamond', serif;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: vertical;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: #333; }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Cormorant Garamond', serif;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    margin-top: 12px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0a;
+    font-weight: 700;
+  }
+  .btn-primary:hover { background: #d4b07a; transform: translateY(-1px); }
+  .btn-primary:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; transform: none; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid #333;
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-download {
+    background: #0d0d0d;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-size: 15px;
+    letter-spacing: 2px;
+    padding: 18px;
+    margin-top: 16px;
+  }
+  .btn-download:hover { background: var(--accent); color: #0a0a0a; }
+
+  /* Theme picker */
+  .themes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .theme-btn {
+    height: 44px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .theme-btn.active { border-color: var(--accent) !important; }
+
+  /* Quote picker */
+  .quote-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .quote-item {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #1a1a1a;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    transition: all 0.2s;
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .quote-item:hover { border-color: #333; color: #999; }
+  .quote-item.active { border-color: var(--accent); color: var(--text); background: #141414; }
+
+  /* Canvas preview */
+  .preview-wrap {
+    position: sticky;
+    top: 20px;
+  }
+  .canvas-container {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+    border: 1px solid #1a1a1a;
+  }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  /* Status */
+  .status {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+    font-style: italic;
+  }
+  .status.show { display: block; }
+  .status.success { background: #0d1a0d; border: 1px solid #2a4a2a; color: #6db86d; }
+  .status.error { background: #1a0d0d; border: 1px solid #4a2a2a; color: #b86d6d; }
+  .status.info { background: #0d0d1a; border: 1px solid #2a2a4a; color: #6d6db8; }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid #333;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  /* Watermark input */
+  .watermark-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .watermark-row input { flex: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">AI-Powered Studio</div>
+    <h1>Quote Generator</h1>
+    <p>Generate · Customize · Download</p>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <!-- Generate -->
+      <div class="card">
+        <label>Topic or Mood</label>
+        <input type="text" id="topic" value="life & growth" placeholder="e.g. heartbreak, hustle, self-worth...">
+        <button class="btn btn-primary" id="generateBtn" onclick="generateQuotes()">
+          Generate 5 Quotes
+        </button>
+      </div>
+
+      <!-- Quote picker -->
+      <div class="card" id="quotePicker" style="display:none">
+        <label>Choose a Quote</label>
+        <div class="quote-list" id="quoteList"></div>
+      </div>
+
+      <!-- Edit -->
+      <div class="card">
+        <label>Quote Text</label>
+        <textarea id="quoteText" rows="3" placeholder="Type your own or generate above..." oninput="renderCanvas()"></textarea>
+        <div style="margin-top:12px">
+          <label>Author (optional)</label>
+          <input type="text" id="authorText" placeholder="e.g. Marcus Aurelius" oninput="renderCanvas()">
+        </div>
+      </div>
+
+      <!-- Theme -->
+      <div class="card">
+        <label>Background Theme</label>
+        <div class="themes">
+          <button class="theme-btn active" style="background:#1a1a1a" data-theme="dark" onclick="setTheme('dark', this)">Dark</button>
+          <button class="theme-btn" style="background:#5c1010" data-theme="crimson" onclick="setTheme('crimson', this)">Red</button>
+          <button class="theme-btn" style="background:#1a4a2e" data-theme="forest" onclick="setTheme('forest', this)">Green</button>
+          <button class="theme-btn" style="background:#1a2a4a" data-theme="navy" onclick="setTheme('navy', this)">Navy</button>
+        </div>
+
+        <div style="margin-top:16px">
+          <label>Watermark Text</label>
+          <input type="text" id="watermark" value="@yourpage" placeholder="@yourhandle" oninput="renderCanvas()">
+        </div>
+      </div>
+
+      <div id="status" class="status"></div>
+
+    </div>
+
+    <!-- RIGHT PANEL: Preview + Download -->
+    <div class="preview-wrap">
+      <div class="canvas-container">
+        <canvas id="canvas" width="1080" height="1080"></canvas>
+      </div>
+      <button class="btn btn-download" onclick="downloadImage()">
+        ↓ &nbsp; Download 1080 × 1080 PNG
+      </button>
+      <p style="text-align:center; color: var(--muted); font-size:12px; margin-top:10px; font-style:italic;">
+        Upload to Instagram, Cloudinary, or anywhere
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const THEMES = {
+  dark:    { bg: '#1a1a1a', text: '#ffffff', sub: 'rgba(255,255,255,0.75)', scratch: 'rgba(255,255,255,0.1)' },
+  crimson: { bg: '#5c1010', text: '#ffffff', sub: 'rgba(255,220,220,0.8)', scratch: 'rgba(255,255,255,0.1)' },
+  forest:  { bg: '#1a4a2e', text: '#ffffff', sub: 'rgba(200,255,220,0.8)', scratch: 'rgba(255,255,255,0.1)' },
+  navy:    { bg: '#1a2a4a', text: '#ffffff', sub: 'rgba(200,220,255,0.8)', scratch: 'rgba(255,255,255,0.1)' },
+};
+
+let currentTheme = 'dark';
+let generatedQuotes = [];
+
+function setTheme(name, el) {
+  currentTheme = name;
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderCanvas();
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = `status show ${type}`;
+}
+
+function generateQuotes() {
+  const topic = document.getElementById('topic').value.trim().toLowerCase() || 'life';
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Finding quotes...';
+
+  const QUOTES = {
+    life: [
+      {quote:"At your lowest, you realize a lot.",author:"Unknown"},
+      {quote:"Life doesn't get easier. You get stronger.",author:"Unknown"},
+      {quote:"Every scar has a story. Own it.",author:"Unknown"},
+      {quote:"The quiet ones feel the loudest storms.",author:"Unknown"},
+      {quote:"Growth hurts. That is how you know it is real.",author:"Unknown"},
+    ],
+    growth: [
+      {quote:"You outgrow people. That is not betrayal, that is evolution.",author:"Unknown"},
+      {quote:"Healing is not linear. Keep going anyway.",author:"Unknown"},
+      {quote:"The version of you they knew is gone.",author:"Unknown"},
+      {quote:"Grow so much they do not recognize you.",author:"Unknown"},
+      {quote:"Change is uncomfortable. So is staying the same.",author:"Unknown"},
+    ],
+    heartbreak: [
+      {quote:"It is okay, but did I deserve that?",author:"Unknown"},
+      {quote:"Missing you was the most exhausting thing I have done.",author:"Unknown"},
+      {quote:"Some goodbyes do not come with a warning.",author:"Unknown"},
+      {quote:"I loved you at my own expense.",author:"Unknown"},
+      {quote:"The hardest part is pretending you are fine.",author:"Unknown"},
+    ],
+    hustle: [
+      {quote:"While they sleep, I build.",author:"Unknown"},
+      {quote:"Nobody is coming to save you. Move.",author:"Unknown"},
+      {quote:"Discipline is louder than motivation.",author:"Unknown"},
+      {quote:"The grind does not care about your feelings.",author:"Unknown"},
+      {quote:"Success is just suffering with a purpose.",author:"Unknown"},
+    ],
+    self: [
+      {quote:"You owe yourself the love you give everyone else.",author:"Unknown"},
+      {quote:"Stop shrinking yourself for people who will not grow.",author:"Unknown"},
+      {quote:"Your silence is not weakness. It is power.",author:"Unknown"},
+      {quote:"Know your worth, then add tax.",author:"Unknown"},
+      {quote:"Protect your peace like it is your only asset.",author:"Unknown"},
+    ],
+    mindset: [
+      {quote:"What you think, you become. Choose carefully.",author:"Buddha"},
+      {quote:"The obstacle is the way.",author:"Marcus Aurelius"},
+      {quote:"You are not your thoughts. You are the observer.",author:"Unknown"},
+      {quote:"Control your mind or it will control you.",author:"Unknown"},
+      {quote:"Peace begins the moment you stop explaining yourself.",author:"Unknown"},
+    ],
+    pain: [
+      {quote:"Pain is information. Listen to it.",author:"Unknown"},
+      {quote:"The wound is where the light enters.",author:"Rumi"},
+      {quote:"Tired but not done. Never done.",author:"Unknown"},
+      {quote:"You survived every bad day so far.",author:"Unknown"},
+      {quote:"Rock bottom built more champions than comfort ever did.",author:"Unknown"},
+    ],
+    success: [
+      {quote:"One day or day one. You decide.",author:"Unknown"},
+      {quote:"They will understand when they see the results.",author:"Unknown"},
+      {quote:"Prove it to yourself first.",author:"Unknown"},
+      {quote:"Small steps still move you forward.",author:"Unknown"},
+      {quote:"Your breakthrough is on the other side of consistency.",author:"Unknown"},
+    ],
+    love: [
+      {quote:"Real love does not make you question your worth.",author:"Unknown"},
+      {quote:"Choose someone who chooses you every day.",author:"Unknown"},
+      {quote:"Love quietly. That is where it is most powerful.",author:"Unknown"},
+      {quote:"The right person will not make you beg.",author:"Unknown"},
+      {quote:"Do not mistake intensity for love.",author:"Unknown"},
+    ],
+    default: [
+      {quote:"At your lowest, you realize a lot.",author:"Unknown"},
+      {quote:"It is okay, but did I deserve that?",author:"Unknown"},
+      {quote:"You outgrow people. That is not betrayal.",author:"Unknown"},
+      {quote:"Discipline is louder than motivation.",author:"Unknown"},
+      {quote:"Protect your peace like it is your only asset.",author:"Unknown"},
+    ]
+  };
+
+  let matched = 'default';
+  const keys = Object.keys(QUOTES).filter(k => k !== 'default');
+  for (const key of keys) {
+    if (topic.includes(key)) { matched = key; break; }
+  }
+  if (matched === 'default') {
+    if (topic.includes('heart') || topic.includes('break') || topic.includes('sad')) matched = 'heartbreak';
+    else if (topic.includes('work') || topic.includes('grind') || topic.includes('money')) matched = 'hustle';
+    else if (topic.includes('worth') || topic.includes('confid')) matched = 'self';
+    else if (topic.includes('think') || topic.includes('focus')) matched = 'mindset';
+    else if (topic.includes('win') || topic.includes('goal')) matched = 'success';
+    else if (topic.includes('hurt') || topic.includes('strug')) matched = 'pain';
+    else if (topic.includes('relation')) matched = 'love';
+  }
+
+  generatedQuotes = [...QUOTES[matched]].sort(() => Math.random() - 0.5).slice(0, 5);
+  renderQuotePicker();
+  selectQuote(0);
+  showStatus('5 quotes ready. Pick one below!', 'success');
+
+  btn.disabled = false;
+  btn.innerHTML = 'Generate 5 Quotes';
+}
+
+function renderQuotePicker() {
+  const picker = document.getElementById('quotePicker');
+  const list = document.getElementById('quoteList');
+  picker.style.display = 'block';
+  list.innerHTML = '';
+  generatedQuotes.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'quote-item' + (i === 0 ? ' active' : '');
+    div.textContent = q.quote;
+    div.onclick = () => selectQuote(i);
+    list.appendChild(div);
+  });
+}
+
+function selectQuote(idx) {
+  document.querySelectorAll('.quote-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  document.getElementById('quoteText').value = generatedQuotes[idx]?.quote || '';
+  document.getElementById('authorText').value = generatedQuotes[idx]?.author === 'Unknown' ? '' : (generatedQuotes[idx]?.author || '');
+  renderCanvas();
+}
+
+function wrapText(ctx, text, x, maxWidth, fontSize) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  ctx.font = `bold ${fontSize}px 'Playfair Display', Georgia, serif`;
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function renderCanvas() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 1080, H = 1080;
+  const theme = THEMES[currentTheme];
+  const quote = document.getElementById('quoteText').value.trim();
+  const author = document.getElementById('authorText').value.trim();
+  const watermark = document.getElementById('watermark').value.trim();
+
+  // Background
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Noise texture
+  const imageData = ctx.getImageData(0, 0, W, H);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 18;
+    data[i]   = Math.min(255, Math.max(0, data[i]   + noise));
+    data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise));
+    data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise));
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Diagonal scratch lines (like stone texture)
+  ctx.save();
+  ctx.strokeStyle = theme.scratch;
+  ctx.lineWidth = 1.2;
+  // Top-left diagonal
+  ctx.beginPath(); ctx.moveTo(0, 290); ctx.lineTo(380, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 310); ctx.lineTo(360, 0); ctx.stroke();
+  // Bottom-right diagonal
+  ctx.beginPath(); ctx.moveTo(680, H); ctx.lineTo(W, 680); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(700, H); ctx.lineTo(W, 700); ctx.stroke();
+  ctx.restore();
+
+  if (!quote) {
+    // Placeholder
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.font = `300 32px 'Cormorant Garamond', Georgia, serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Your quote will appear here', W/2, H/2);
+    return;
+  }
+
+  // --- Quote text ---
+  const maxWidth = W - 200;
+  const marginX = 100;
+
+  // Determine font size based on quote length
+  let fontSize = quote.length < 40 ? 82 : quote.length < 80 ? 68 : 54;
+  const lines = wrapText(ctx, quote, marginX, maxWidth, fontSize);
+
+  // First line bold big, rest slightly smaller
+  const lineHeights = lines.map((_, i) => i === 0 ? fontSize + 10 : fontSize * 0.85);
+  const lineSpacing = fontSize * 0.45;
+  let totalH = 0;
+  lines.forEach((_, i) => { totalH += lineHeights[i] + (i < lines.length - 1 ? lineSpacing : 0); });
+
+  // Author space
+  const authorH = author ? 60 : 0;
+  const blockH = totalH + authorH + (author ? 40 : 0);
+  let y = (H - blockH) / 2;
+
+  lines.forEach((line, i) => {
+    const fs = lineHeights[i];
+    if (i === 0) {
+      ctx.font = `bold ${fs}px 'Playfair Display', Georgia, serif`;
+      ctx.fillStyle = theme.text;
+    } else {
+      ctx.font = `400 ${fs}px 'Playfair Display', Georgia, serif`;
+      ctx.fillStyle = theme.sub;
+    }
+    ctx.textAlign = 'left';
+    ctx.fillText(line, marginX, y + fs);
+    y += fs + lineSpacing;
+  });
+
+  // Author
+  if (author) {
+    y += 20;
+    ctx.font = `300 italic 36px 'Cormorant Garamond', Georgia, serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.textAlign = 'left';
+    ctx.fillText('— ' + author, marginX, y + 36);
+  }
+
+  // Watermark
+  if (watermark) {
+    ctx.font = `300 26px 'Cormorant Garamond', Georgia, serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.textAlign = 'right';
+    ctx.fillText(watermark, W - 60, H - 55);
+  }
+}
+
+function downloadImage() {
+  const quote = document.getElementById('quoteText').value.trim();
+  if (!quote) {
+    showStatus('Please enter or generate a quote first.', 'error');
+    return;
+  }
+
+  renderCanvas(); // Make sure it's fresh
+
+  setTimeout(() => {
+    const canvas = document.getElementById('canvas');
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'quote_post.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showStatus('✓ Downloaded! Now upload to Instagram.', 'success');
+    } catch(e) {
+      // Fallback for mobile
+      const dataUrl = canvas.toDataURL('image/png');
+      window.open(dataUrl, '_blank');
+      showStatus('✓ Opened in new tab — long press the image to save it!', 'success');
+    }
+  }, 80);
+}
+
+// Initial render
+renderCanvas();
+</script>
+</body>
+</html>
